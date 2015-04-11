@@ -10,9 +10,6 @@ require 'active_support/cache/memcached_store'
 
 require File.dirname(__FILE__) + '/../lib/identity_cache'
 
-$memcached_port = 11211
-$mysql_port = 3306
-
 DatabaseConnection.setup
 ActiveSupport::Cache::Store.instrument = true
 
@@ -29,15 +26,14 @@ end
 
 class IdentityCache::TestCase < MiniTest::Unit::TestCase
   include ActiveRecordObjects
-  attr_reader :backend, :fetcher
+  attr_reader :backend
 
   def setup
     DatabaseConnection.drop_tables
     DatabaseConnection.create_tables
 
     IdentityCache.logger = Logger.new(nil)
-    IdentityCache.cache_backend = @backend = ActiveSupport::Cache::MemcachedStore.new("localhost:#{$memcached_port}", :support_cas => true)
-    @fetcher = IdentityCache.cache.cache_fetcher
+    IdentityCache.cache_backend = @backend = ActiveSupport::Cache::MemcachedStore.new("localhost:11211", :support_cas => true)
 
     setup_models
   end
@@ -45,6 +41,12 @@ class IdentityCache::TestCase < MiniTest::Unit::TestCase
   def teardown
     IdentityCache.cache.clear
     teardown_models
+  end
+
+  private
+
+  def fetcher
+    IdentityCache.cache.cache_fetcher
   end
 
   def assert_nothing_raised

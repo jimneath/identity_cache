@@ -7,7 +7,7 @@ module IdentityCache
     end
 
     def write(key, value)
-      @cache_backend.write(key, value)
+      @cache_backend.write(key, value) if IdentityCache.should_fill_cache?
     end
 
     def delete(key)
@@ -34,6 +34,8 @@ module IdentityCache
           break
         end
         result = yield
+        break unless IdentityCache.should_fill_cache?
+        result
       end
       unless yielded
         result = yield
@@ -66,6 +68,7 @@ module IdentityCache
         end
 
         break if updates.empty?
+        break unless IdentityCache.should_fill_cache?
         updates
       end
       result
@@ -78,7 +81,7 @@ module IdentityCache
     end
 
     def add(key, value)
-      @cache_backend.write(key, value, :unless_exist => true)
+      @cache_backend.write(key, value, :unless_exist => true) if IdentityCache.should_fill_cache?
     end
   end
 end

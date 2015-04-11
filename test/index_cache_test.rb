@@ -15,7 +15,7 @@ class IndexCacheTest < IdentityCache::TestCase
     Item.cache_index :title, :id
 
     Item.connection.expects(:exec_query)
-      .with(regexp_matches(/ WHERE `items`\.`title` = 'garbage' AND `items`\.`id` = 0\z/i), anything)
+      .with(Item.select(:id).where(title: 'garbage', id: 0).to_sql, any_parameters)
       .returns(ActiveRecord::Result.new([], []))
 
     assert_equal [], Item.fetch_by_title_and_id('garbage', 'garbage')
@@ -25,7 +25,7 @@ class IndexCacheTest < IdentityCache::TestCase
     Item.cache_index :title, :id, :unique => true
 
     Item.connection.expects(:exec_query)
-      .with(regexp_matches(/ LIMIT 1\Z/i), anything)
+      .with(regexp_matches(/ LIMIT 1\Z/i), any_parameters)
       .returns(ActiveRecord::Result.new([], []))
 
     assert_equal nil, Item.fetch_by_title_and_id('title', '2')
@@ -87,7 +87,7 @@ class IndexCacheTest < IdentityCache::TestCase
   def test_non_unique_index_fetches_multiple_records
     Item.cache_index :title
     @record.save!
-    record2 = Item.create(:id => 2, :title => 'bob')
+    record2 = Item.create(:title => 'bob') { |item| item.id = 2 }
 
     assert_equal [@record, record2], Item.fetch_by_title('bob')
     assert_equal [1, 2], backend.read(@cache_key)

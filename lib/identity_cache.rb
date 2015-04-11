@@ -21,6 +21,7 @@ module IdentityCache
   DELETED_TTL = 1000
 
   class AlreadyIncludedError < StandardError; end
+  class AssociationError < StandardError; end
   class InverseAssociationError < StandardError
     def initialize
       super "Inverse name for association could not be determined. Please use the :inverse_name option to specify the inverse association name for this cache."
@@ -69,8 +70,13 @@ module IdentityCache
       @logger || Rails.logger
     end
 
-    def should_cache? # :nodoc:
-      !readonly && ActiveRecord::Base.connection.open_transactions == 0
+    def should_fill_cache? # :nodoc:
+      !readonly
+    end
+
+    def should_use_cache? # :nodoc:
+      pool = ActiveRecord::Base.connection_pool
+      !pool.active_connection? || pool.connection.open_transactions == 0
     end
 
     # Cache retrieval and miss resolver primitive; given a key it will try to
@@ -81,7 +87,7 @@ module IdentityCache
     # +key+ A cache key string
     #
     def fetch(key)
-      if should_cache?
+      if should_use_cache?
         unmap_cached_nil_for(cache.fetch(key) { map_cached_nil_for yield })
       else
         yield
@@ -105,7 +111,7 @@ module IdentityCache
       keys.flatten!(1)
       return {} if keys.size == 0
 
-      result = if should_cache?
+      result = if should_use_cache?
         fetch_in_batches(keys) do |missed_keys|
           results = yield missed_keys
           results.map {|e| map_cached_nil_for e }

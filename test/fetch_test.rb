@@ -19,7 +19,7 @@ class FetchTest < IdentityCache::TestCase
 
   def test_fetch_with_garbage_input
     Item.connection.expects(:exec_query)
-      .with('SELECT  `items`.* FROM `items`  WHERE `items`.`id` = 0 LIMIT 1', anything)
+      .with(Item.where(id: 0).limit(1).to_sql, any_parameters)
       .returns(ActiveRecord::Result.new([], []))
 
     assert_equal nil, Item.fetch_by_id('garbage')
@@ -187,5 +187,16 @@ class FetchTest < IdentityCache::TestCase
     fetcher.expects(:fetch).never
     fetcher.expects(:add).never
     assert_raises(ActiveRecord::RecordNotFound) { Item.fetch(nil) }
+  end
+
+  def test_fetch_cache_hit_does_not_checkout_database_connection
+    @record.save!
+    record = Item.fetch(@record.id)
+
+    ActiveRecord::Base.clear_active_connections!
+
+    assert_equal record, Item.fetch(@record.id)
+
+    assert_equal false, ActiveRecord::Base.connection_handler.active_connections?
   end
 end
